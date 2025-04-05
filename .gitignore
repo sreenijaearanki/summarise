@@ -135,6 +135,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+nvenv/
 
 # Spyder project settings
 .spyderproject
@@ -172,3 +173,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+#audio files
+temp_slice.wav
+temp_audio_input
