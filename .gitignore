@@ -177,3 +177,7 @@ cython_debug/
 #audio files
 temp_slice.wav
 temp_audio_input
+
+#Downloaded audio files
+audio_files
+.streamlit
