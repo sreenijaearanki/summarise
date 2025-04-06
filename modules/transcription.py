@@ -1,105 +1,67 @@
-# modules/transcription.py
-
-import whisper
-import requests
-from pydub import AudioSegment
+import assemblyai as aai
+import yt_dlp
 import os
+from uuid import uuid4
 
-# Load a single Whisper model at import time
-# (You could load multiple if you want "tiny", "base", "large" options.)
-whisper_model = whisper.load_model("base")  # or "small", "medium", "large", etc.
+# Initialize the transcriber
+transcriber = aai.Transcriber()
 
-def download_audio_from_link(url: str, output_path: str = "temp_audio_input"):
+# Transcription configuration
+config = aai.TranscriptionConfig(speaker_labels=True)
+
+
+def download_youtube_audio(youtube_url: str, output_folder: str = "audio_files") -> str:
     """
-    Downloads audio from a given URL and saves it locally as 'temp_audio_input'.
-    Raises an exception if the download fails.
+    Downloads audio from a YouTube video and saves it in the best available format.
+
+    Args:
+        youtube_url (str): The URL of the YouTube video.
+        output_folder (str): The folder to save the downloaded audio file.
+
+    Returns:
+        str: The path to the downloaded audio file.
     """
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise Exception(f"Failed to download audio from {url}")
-    with open(output_path, "wb") as f:
-        f.write(response.content)
+    os.makedirs(output_folder, exist_ok=True)  # Ensure the output folder exists
+    unique_filename = f"{uuid4().hex}.m4a"  # Generate a unique filename
+    output_path = os.path.join(output_folder, unique_filename)
 
-# def transcribe_audio_whisper_local(
-#     audio_path: str,
-#     start_time: float = 0.0,
-#     end_time: float = None
-# ) -> str:
-#     """
-#     Transcribe audio using local Whisper, allowing partial slicing via start_time and end_time (in seconds).
-#     """
-#     # Load entire audio with pydub
-#     audio = AudioSegment.from_file(audio_path)
-#     duration_sec = len(audio) / 1000.0
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": output_path,
+        "quiet": True,
+    }
 
-#     # Adjust end_time if not provided or out of range
-#     if end_time is None or end_time > duration_sec:
-#         end_time = duration_sec
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        print(f"[INFO] Downloading audio from YouTube: {youtube_url}")
+        ydl.download([youtube_url])
 
-#     # pydub slicing uses milliseconds
-#     start_ms = int(start_time * 1000)
-#     end_ms = int(end_time * 1000)
-
-#     # Slice the audio
-#     sliced_audio = audio[start_ms:end_ms]
-#     temp_sliced_path = "temp_slice.wav"
-#     sliced_audio.export(temp_sliced_path, format="wav")
-
-#     # Transcribe the sliced audio
-#     result = whisper_model.transcribe(temp_sliced_path)
-#     return result["text"]
-
-def transcribe_audio_whisper_local(audio_path: str, start_time: float = 0.0, end_time: float = None) -> str:
-    from pydub import AudioSegment
-
-    audio = AudioSegment.from_file(audio_path)
-    duration_sec = len(audio) / 1000.0
-
-    if end_time is None or end_time > duration_sec:
-        end_time = duration_sec
-
-    sliced_audio = audio[int(start_time * 1000):int(end_time * 1000)]
-    temp_sliced_path = "temp_slice.wav"
-    sliced_audio.export(temp_sliced_path, format="wav")
-
-    # 🪵 Log step
-    print(f"[INFO] Transcribing audio from {start_time}s to {end_time}s ({temp_sliced_path})")
-
-    import whisper
-    model = whisper.load_model("base")
-    result = model.transcribe(temp_sliced_path)
-
-    print("[DEBUG] Whisper Result:", result)  # Log full output
-
-    return result.get("text", "")  # safer way to access transcript
+    print(f"[INFO] Audio downloaded and saved to {output_path}")
+    return output_path
 
 
-
-
-def transcribe_audio_whisper_api(
-    audio_path: str,
-    start_time: float = 0.0,
-    end_time: float = None
-) -> str:
+def transcribe_audio(input_source):
     """
-    Placeholder for an external Whisper API or any other cloud-based STT service.
-    You can slice the audio locally first, then upload it to the API.
-    """
-    # For now, just returning a mock string
-    return "Transcribed text from external API (placeholder)."
+    Transcribes audio using AssemblyAI's SDK.
+    The input can be either a YouTube link or a local file path.
 
-def transcribe_audio(
-    audio_path: str,
-    method: str,
-    start_time: float = 0.0,
-    end_time: float = None
-) -> str:
+    Args:
+        input_source (str): YouTube link or local file path.
+
+    Returns:
+        dict: The transcript object returned by AssemblyAI.
     """
-    Dispatcher function to choose which transcription method to use.
-    """
-    if method == "Local Whisper":
-        return transcribe_audio_whisper_local(audio_path, start_time, end_time)
-    elif method == "API Whisper":
-        return transcribe_audio_whisper_api(audio_path, start_time, end_time)
+    audio_path = None
+
+    if isinstance(input_source, str) and (
+        "youtube.com" in input_source or "youtu.be" in input_source
+    ):
+        # Input is a YouTube link
+        print("[INFO] Detected YouTube link. Downloading audio...")
+        audio_path = download_youtube_audio(input_source)
+
+    if audio_path or input_source:
+        # Transcribe the audio
+        transcript = transcriber.transcribe(audio_path or input_source, config)
+        return transcript, audio_path
     else:
-        return "No valid transcription method selected."
+        return None, None
