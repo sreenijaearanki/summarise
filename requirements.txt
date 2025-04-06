@@ -1,0 +1,4 @@
+streamlit
+assemblyai
+yt_dlp
+openai
