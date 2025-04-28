@@ -2,6 +2,10 @@ import assemblyai as aai
 import yt_dlp
 import os
 from uuid import uuid4
+import streamlit as st
+import assemblyai as aai
+
+aai.settings.api_key = st.secrets["ASSEMBLYAI_API_KEY"]
 
 # Initialize the transcriber
 transcriber = aai.Transcriber()
